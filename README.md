@@ -1,0 +1,2 @@
+# progic
+Propositional logic evaluator
