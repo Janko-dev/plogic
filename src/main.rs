@@ -3,20 +3,23 @@ use std::{iter::Peekable, str::Chars, slice::Iter};
 
 #[derive(Debug)]
 enum Token {
-    Identifier(String),
-    Not,
-    And,
-    Or,
-    Arrow,
-    TwinArrow,
+    Identifier(String),     // [a-z/A-Z] 
+    Not,                    // ~
+    And,                    // &
+    Or,                     // |
+    Arrow,                  // ->
+    TwinArrow,              // <->
+    Derive,                 // =>
     
-    OpenParen,
-    CloseParen,
-    Equal,
+    OpenParen,              // (
+    CloseParen,             // )
+    Equal,                  // =
 }
 
 #[derive(Debug)]
 enum Expr {
+    Pattern(Box<Expr>, Box<Expr>),          // Binary => Equivalence // r & s => p & q = q & p
+    Equivalence(Box<Expr>, Box<Expr>),      // Binary = Binary// p & q = q & p
     Binary(Box<Expr>, Token, Box<Expr>),
     Unary(Token, Box<Expr>),
     Group(Box<Expr>),
@@ -78,7 +81,15 @@ fn lexer(list: &mut Vec<Token>, input: &mut String) {
             Some('~') => add_token(list, &mut input, Token::Not),
             Some('(') => add_token(list, &mut input, Token::OpenParen),
             Some(')') => add_token(list, &mut input, Token::CloseParen),
-            Some('=') => add_token(list, &mut input, Token::Equal),
+            Some('=') => {
+                input.next();
+                if let Some('>') = input.peek() {
+                    list.push(Token::Derive);
+                    input.next();
+                } else {
+                    list.push(Token::Equal);
+                }
+            },
 
             Some('<') => add_twin_arrow(list, &mut input),
             Some('-') => add_arrow(list, &mut input),
@@ -99,9 +110,20 @@ fn lexer(list: &mut Vec<Token>, input: &mut String) {
 }
 
 fn parse(list: &mut Vec<Token>) -> Result<Expr, String> {
-
     let mut tokens = list.iter().peekable();
-    expression(&mut tokens)
+    
+    pattern_match(&mut tokens)
+}
+
+// 
+fn pattern_match(tokens: &mut Peekable<Iter<Token>>) -> Result<Expr, String> {
+    let mut left = logic_not(tokens);
+    if let Some(Token::Derive) = tokens.peek() {
+        tokens.next();
+        let right = expression(tokens)?;
+        left = Ok(Expr::Pattern(Box::new(left?), Box::new(right)))
+    }
+    left
 }
 
 fn expression(tokens: &mut Peekable<Iter<Token>>) -> Result<Expr, String> {
@@ -110,7 +132,7 @@ fn expression(tokens: &mut Peekable<Iter<Token>>) -> Result<Expr, String> {
     while let Some(Token::Equal) = tokens.peek() {
         tokens.next();
         let right = logic_not(tokens)?;
-        left = Ok(Expr::Binary(Box::new(left?), Token::Equal, Box::new(right)));
+        left = Ok(Expr::Equivalence(Box::new(left?), Box::new(right)));
     }
     left
 }
@@ -201,7 +223,7 @@ fn primary(tokens: &mut Peekable<Iter<Token>>) -> Result<Expr, String> {
 //          result: f & t
 
 fn main() {
-    let mut input = "~p & q = q & p".to_string();
+    let mut input = "t & f => p & q = q & p".to_string();
     // let mut input = "p & (q | r) = (p & q) | (p & r)".to_string();
     
     let mut tokens: Vec<Token> = Vec::new();
