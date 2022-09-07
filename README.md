@@ -1,2 +1,2 @@
-# progic
-Propositional logic evaluator
+# Plogic
+Propositional logic evaluator written in Rust. 
