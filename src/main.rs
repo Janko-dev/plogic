@@ -1,4 +1,4 @@
-use std::{iter::Peekable, str::Chars, slice::Iter, collections::HashMap, fmt::Display, io::{stdout, Write, self}};
+use std::{iter::Peekable, str::Chars, slice::Iter, collections::HashMap, fmt::Display, io::{Write, self}};
 
 
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -437,7 +437,14 @@ fn primary(tokens: &mut Peekable<Iter<Token>>, interned: &mut Vec<String>) -> Re
 fn main() {
     let mut input = String::new();
     let mut tokens: Vec<Token> = Vec::new();
-
+    println!("Welcome to the REPL of Plogic.");
+    println!("Operator Usage:");
+    println!("    - And is '&'");
+    println!("    - Or is '|'");
+    println!("    - Not is '~'");
+    println!("    - Implication is '->'");
+    println!("    - Bi-implication is '<->'");
+    println!("Type a logic expression in the prompt :-)");
     loop {
         input.clear();
         tokens.clear();
