@@ -57,6 +57,7 @@ impl Display for Expr {
 #[derive(Debug)]
 struct Table {
     map: HashMap<Expr, Vec<usize>>,
+    atoms: Vec<Expr>,
     patterns: HashMap<Expr, Expr>,
     interned: Vec<String>,
     rows: usize,
@@ -66,6 +67,7 @@ impl Table {
     fn new() -> Self {
         Self { 
             map: HashMap::new(),
+            atoms: Vec::new(),
             patterns: HashMap::new(),
             interned: Vec::new(),
             rows: 0,
@@ -90,6 +92,7 @@ impl Table {
             e @ Expr::Primary(_) => {
                 if let None = self.map.get(&e) {
                     self.map.insert(e.clone(), Vec::new());
+                    self.atoms.push(e.clone());
                 }
             },
         }
@@ -105,9 +108,6 @@ impl Table {
 
     fn eval(&mut self, expr: &Expr) -> Vec<usize> {
         match expr {
-            Expr::Pattern(_e, _l, _r) => {
-                todo!();
-            },
             e @ Expr::Binary(l, op, r) => {
                 let left = self.eval(&*l);
                 let right = self.eval(&*r);
@@ -144,6 +144,7 @@ impl Table {
             e @ Expr::Primary(_) => {
                 self.map.get(e).unwrap().to_vec()
             },
+            _ => panic!("Unreachable eval"),
         }
     }
 
@@ -153,11 +154,9 @@ impl Table {
         let count = self.map.len();
         self.rows = (2 as usize).pow(count as u32);   
         
-        // for (j, entry) in self.map.iter().collect::<Vec<_>>() {
-        //     entry.push(1);
-        // }
-
-        for (j, entry) in self.map.values_mut().enumerate() {
+        self.atoms.sort_by(|a, b| a.cmp(&b));
+        for (j, e) in self.atoms.iter().enumerate() {
+            let mut entry: Vec<usize> = Vec::new();
             for i in 0..self.rows{
                 let k = (2 as usize).pow((j+1) as u32);
                 if i % k + 1 > k / 2 {
@@ -166,6 +165,7 @@ impl Table {
                     entry.push(0);
                 }
             }
+            self.map.insert(e.clone(), entry);
         }
 
         self.eval(&expr);
@@ -552,11 +552,9 @@ fn main() {
         }
 
         lexer(&mut tokens, &mut input, &mut prev_input);
-        // println!("{:?}", tokens);
         
         let mut table = Table::new();
         let expr = parse(&mut tokens, &mut table.interned);
-        // println!("{:?}", expr);
 
         match expr {
             Ok(Expr::Pattern(e, lhs, rhs)) => {
