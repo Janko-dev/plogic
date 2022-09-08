@@ -36,8 +36,7 @@ impl Display for BinOperator {
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, PartialOrd, Ord)]
 enum Expr {
-    Pattern(Box<Expr>, Box<Expr>),          // Binary => Equivalence // r & s => p & q = q & p
-    Equivalence(Box<Expr>, Box<Expr>),      // Binary = Binary// p & q = q & p
+    Pattern(Box<Expr>, Box<Expr>, Box<Expr>),          // Binary => Equivalence // r & s => p & q = q & p
     Binary(Box<Expr>, BinOperator, Box<Expr>),
     Not(Box<Expr>),
     Group(Box<Expr>),
@@ -47,8 +46,7 @@ enum Expr {
 impl Display for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Expr::Pattern(e, eq) => write!(f, "{} => {}", e, eq),
-            Expr::Equivalence(l, r) => write!(f, "{} = {}", l, r),
+            Expr::Pattern(e, lhs, rhs) => write!(f, "{} => {} = {}", e, lhs, rhs),
             Expr::Binary(l, op, r) => write!(f, "{} {} {}", l, op, r),
             Expr::Not(e) => write!(f, "~{}", e),
             Expr::Group(e) => write!(f, "({})", e),
@@ -60,6 +58,7 @@ impl Display for Expr {
 #[derive(Debug)]
 struct Table {
     map: HashMap<Expr, Vec<usize>>,
+    patterns: HashMap<Expr, Expr>,
     interned: Vec<String>,
     rows: usize,
 }
@@ -68,6 +67,7 @@ impl Table {
     fn new() -> Self {
         Self { 
             map: HashMap::new(),
+            patterns: HashMap::new(),
             interned: Vec::new(),
             rows: 0,
         }
@@ -75,10 +75,7 @@ impl Table {
 
     fn fill_symbols(&mut self, expr: &Expr){
         match expr {
-            Expr::Pattern(_e, _eq) => {
-                todo!();
-            },
-            Expr::Equivalence(_left, _right) => {
+            Expr::Pattern(_e, _l, _r) => {
                 todo!();
             },
             Expr::Binary(left, _, right) => {
@@ -109,10 +106,7 @@ impl Table {
 
     fn eval(&mut self, expr: &Expr) -> Vec<usize> {
         match expr {
-            Expr::Pattern(_e, _eq) => {
-                todo!();
-            },
-            Expr::Equivalence(_left, _right) => {
+            Expr::Pattern(_e, _l, _r) => {
                 todo!();
             },
             e @ Expr::Binary(l, op, r) => {
@@ -158,10 +152,14 @@ impl Table {
         self.fill_symbols(&expr);
 
         let count = self.map.len();
-        self.rows = (2 as usize).pow(count as u32);
+        self.rows = (2 as usize).pow(count as u32);   
         
-        for i in 0..self.rows{
-            for (j, entry) in self.map.values_mut().enumerate() {
+        // for (j, entry) in self.map.iter().collect::<Vec<_>>() {
+        //     entry.push(1);
+        // }
+
+        for (j, entry) in self.map.values_mut().enumerate() {
+            for i in 0..self.rows{
                 let k = (2 as usize).pow((j+1) as u32);
                 if i % k + 1 > k / 2 {
                     entry.push(1);
@@ -172,6 +170,14 @@ impl Table {
         }
 
         self.eval(&expr);
+        self.map.retain(|k, _| {
+            if let Expr::Group(_) = k {
+                false
+            } else {
+                true
+            }
+        });
+
     }
 
     fn sort(&self) -> Vec<(&Expr, &Vec<usize>)> {
@@ -184,8 +190,8 @@ impl Table {
 
     fn expr_to_string(&self, expr: &Expr) -> String {
         match expr {
-            Expr::Pattern(e, eq) => format!("{} => {}", self.expr_to_string(e), self.expr_to_string(eq)),
-            Expr::Equivalence(l, r) => format!("{} = {}", self.expr_to_string(l), self.expr_to_string(r)),
+            Expr::Pattern(e, l, r) => 
+                format!("{} => {} = {}", self.expr_to_string(e), self.expr_to_string(l), self.expr_to_string(r)),
             Expr::Binary(l, op, r) => format!("{} {} {}", self.expr_to_string(l), op, self.expr_to_string(r)),
             Expr::Not(e) => format!("~{}", self.expr_to_string(e)),
             Expr::Group(e) => format!("({})", self.expr_to_string(e)),
@@ -230,6 +236,81 @@ impl Table {
             println!();
         }
         println!("{:-<1$}", "", total-1);
+    }
+
+    fn traverse_and_match(&mut self, expr: Expr, lhs: Expr) {
+        match lhs {
+            Expr::Binary(pat_left, pat_op, pat_right) => {
+                if let Expr::Binary(e_left, e_op, e_right) = expr {
+                    if pat_op == e_op {
+                        self.traverse_and_match(*e_left, *pat_left);
+                        self.traverse_and_match(*e_right, *pat_right);
+                    } else {
+                        println!("Expression does not match pattern");
+                    }
+                } else {
+                    println!("Expression does not match pattern: {}", expr);
+                }
+            },
+            Expr::Not(pat_e) => {
+                if let Expr::Not(e) = expr {
+                    self.traverse_and_match(*e, *pat_e);
+                } else {
+                    println!("Expression does not match pattern: {}", expr);
+                }
+            },
+            Expr::Group(pat_e) => {
+                if let Expr::Group(e) = expr {
+                    self.traverse_and_match(*e, *pat_e);
+                } else {
+                    println!("Expression does not match pattern: {}", expr);
+                }
+            },
+            Expr::Primary(_) => {
+                if let None = self.patterns.get(&lhs) {
+                    self.patterns.insert(lhs.clone(), expr);
+                }
+            },
+            _ => {
+                println!("Unreachable");
+            }
+        }
+    }
+
+    fn subsitute_in(&mut self, expr: Expr) -> Result<Expr, String> {
+        match expr {
+            Expr::Binary(l, op, r) => {
+                let left = self.subsitute_in(*l)?;
+                let right = self.subsitute_in(*r)?;
+                Ok(Expr::Binary(Box::new(left), op, Box::new(right)))
+            },
+            Expr::Not(e) => {
+                let res = self.subsitute_in(*e)?;
+                Ok(Expr::Not(Box::new(res)))
+            },
+            Expr::Group(e) => {
+                let res = self.subsitute_in(*e)?;
+                Ok(Expr::Group(Box::new(res)))
+            },
+            Expr::Primary(_) => {
+                if let Some(v) = self.patterns.get(&expr) {
+                    Ok(v.clone())
+                } else {
+                    Err("Pattern could not be found in expression or left hand side".to_string())
+                }
+            },
+            _ => Err("Unreachable".to_string())
+        }
+    }
+
+    fn match_patterns(&mut self, expr: Expr, lhs: Expr, rhs: Expr) {
+        self.traverse_and_match(expr, lhs);
+        let result = self.subsitute_in(rhs);
+        match result {
+            Ok(e) => println!("{}", self.expr_to_string(&e)),
+            Err(s) => println!("{}", s),
+        }
+        
     }
 
 }
@@ -329,22 +410,17 @@ fn parse(list: &mut Vec<Token>, interned: &mut Vec<String>) -> Result<Expr, Stri
 }
 
 fn pattern_match(tokens: &mut Peekable<Iter<Token>>, interned: &mut Vec<String>) -> Result<Expr, String> {
-    let mut left = logic_twin_arrow(tokens, interned);
+    let left = logic_twin_arrow(tokens, interned);
     if let Some(Token::Derive) = tokens.peek() {
         tokens.next();
-        let right = expression(tokens, interned)?;
-        left = Ok(Expr::Pattern(Box::new(left?), Box::new(right)))
-    }
-    left
-}
-
-fn expression(tokens: &mut Peekable<Iter<Token>>, interned: &mut Vec<String>) -> Result<Expr, String> {
-    let mut left = logic_twin_arrow(tokens, interned);
-    
-    if let Some(Token::Equal) = tokens.peek() {
-        tokens.next();
-        let right = logic_twin_arrow(tokens, interned)?;
-        left = Ok(Expr::Equivalence(Box::new(left?), Box::new(right)));
+        let eq_lhs = logic_twin_arrow(tokens, interned)?;
+        if let Some(Token::Equal) = tokens.peek() {
+            tokens.next();
+            let eq_rhs = logic_twin_arrow(tokens, interned)?;
+            return Ok(Expr::Pattern(Box::new(left?), Box::new(eq_lhs), Box::new(eq_rhs)));
+        } else {
+            return Err("Expected '=' in pattern expression".to_string());
+        }
     }
     left
 }
@@ -431,20 +507,27 @@ fn primary(tokens: &mut Peekable<Iter<Token>>, interned: &mut Vec<String>) -> Re
 
 // creating rules that can be applied
 // example: 
-//          t & f ==> p & q = q & p
+//          t & f => p & q = q & p
 //          result: f & t
+
+fn usage(){
+    println!("Usage:");
+    println!("   -------------------");
+    println!("   | And     |  '&'  |");
+    println!("   | Or      |  '|'  |");
+    println!("   | Not     |  '~'  |");
+    println!("   | Cond    |  '->' |");
+    println!("   | Bi-Cond | '<->' |");
+    println!("   -------------------");
+    println!("   - help: usage info");
+    println!("   - quit: exit repl");
+}
 
 fn main() {
     let mut input = String::new();
     let mut tokens: Vec<Token> = Vec::new();
     println!("Welcome to the REPL of Plogic.");
-    println!("Operator Usage:");
-    println!("    - And is '&'");
-    println!("    - Or is '|'");
-    println!("    - Not is '~'");
-    println!("    - Implication is '->'");
-    println!("    - Bi-implication is '<->'");
-    println!("Type a logic expression in the prompt :-)");
+    usage();
     loop {
         input.clear();
         tokens.clear();
@@ -452,8 +535,19 @@ fn main() {
         print!("> ");
         io::stdout().flush().expect("Failed to flush stdout");
         io::stdin().read_line(&mut input).expect("Failed to read line from stdin");
+        
+        let mut input = input.trim().to_string();
+        match input.as_str() {
+            "help" => {
+                usage();
+                continue;
+            },
+            "\n" | "" => continue,
+            "quit" => break,
+            _ => {},
+        }
 
-        lexer(&mut tokens, &mut input.trim().to_string());
+        lexer(&mut tokens, &mut input);
         // println!("{:?}", tokens);
         
         let mut table = Table::new();
@@ -461,6 +555,10 @@ fn main() {
         // println!("{:?}", expr);
 
         match expr {
+            Ok(Expr::Pattern(e, lhs, rhs)) => {
+                // (t | f) & f => p & q = q & p
+                table.match_patterns(*e, *lhs, *rhs);
+            },
             Ok(e) => {
                 table.generate_truthtable(e);
                 table.print();
