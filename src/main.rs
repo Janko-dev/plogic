@@ -1,6 +1,5 @@
 use std::{iter::Peekable, str::Chars, slice::Iter, collections::HashMap, fmt::Display, io::{Write, self}};
 
-
 #[derive(Debug, PartialEq, Eq, Hash)]
 enum Token {
     Identifier(String),     // [a-z/A-Z] 
@@ -303,14 +302,13 @@ impl Table {
         }
     }
 
-    fn match_patterns(&mut self, expr: Expr, lhs: Expr, rhs: Expr) {
+    fn match_patterns(&mut self, expr: Expr, lhs: Expr, rhs: Expr) -> Result<String, String> {
         self.traverse_and_match(expr, lhs);
         let result = self.subsitute_in(rhs);
         match result {
-            Ok(e) => println!("{}", self.expr_to_string(&e)),
-            Err(s) => println!("{}", s),
+            Ok(e) => Ok(self.expr_to_string(&e)),
+            Err(s) => Ok(s),
         }
-        
     }
 
 }
@@ -351,17 +349,22 @@ fn add_twin_arrow(list: &mut Vec<Token>, input: &mut Peekable<Chars>){
     list.push(Token::TwinArrow);
 }
 
-fn identifier(list: &mut Vec<Token>, input: &mut Peekable<Chars>){
+fn identifier(list: &mut Vec<Token>, input: &mut Peekable<Chars>, prev_input: &mut String){
     let mut lexeme = String::new();
     while let Some(c @ 'a'..='z') | Some(c @ 'A'..='Z') = input.peek() {
         lexeme.push(*c);
         input.next();
     }
 
+    if lexeme.eq("ans") && prev_input.len() > 0{
+        lexer(list, prev_input, &mut "".to_string());
+        return;
+    } 
+
     list.push(Token::Identifier(lexeme));
 }
 
-fn lexer(list: &mut Vec<Token>, input: &mut String) {
+fn lexer(list: &mut Vec<Token>, input: &mut String, prev_input: &mut String) {
     let mut input = input.chars().peekable();
     loop {
         match input.peek() {
@@ -382,7 +385,7 @@ fn lexer(list: &mut Vec<Token>, input: &mut String) {
 
             Some('<') => add_twin_arrow(list, &mut input),
             Some('-') => add_arrow(list, &mut input),
-            Some('a'..='z') | Some('A'..='Z') => identifier(list, &mut input),
+            Some('a'..='z') | Some('A'..='Z') => identifier(list, &mut input, prev_input),
 
             Some(' ') | Some('\t') | Some('\n') => {
                 input.next();
@@ -505,11 +508,6 @@ fn primary(tokens: &mut Peekable<Iter<Token>>, interned: &mut Vec<String>) -> Re
     }
 }
 
-// creating rules that can be applied
-// example: 
-//          t & f => p & q = q & p
-//          result: f & t
-
 fn usage(){
     println!("Usage:");
     println!("   -------------------");
@@ -519,13 +517,19 @@ fn usage(){
     println!("   | Cond    |  '->' |");
     println!("   | Bi-Cond | '<->' |");
     println!("   -------------------");
+    println!("   ----------------------");
+    println!("   | Rule       |  '=>' |");
+    println!("   | Derivation |       |");
+    println!("   ----------------------");
     println!("   - help: usage info");
+    println!("   - ans:  previous answer");
     println!("   - quit: exit repl");
 }
 
 fn main() {
     let mut input = String::new();
     let mut tokens: Vec<Token> = Vec::new();
+    let mut prev_input: String = String::new();
     println!("Welcome to the REPL of Plogic.");
     usage();
     loop {
@@ -547,7 +551,7 @@ fn main() {
             _ => {},
         }
 
-        lexer(&mut tokens, &mut input);
+        lexer(&mut tokens, &mut input, &mut prev_input);
         // println!("{:?}", tokens);
         
         let mut table = Table::new();
@@ -557,9 +561,19 @@ fn main() {
         match expr {
             Ok(Expr::Pattern(e, lhs, rhs)) => {
                 // (t | f) & f => p & q = q & p
-                table.match_patterns(*e, *lhs, *rhs);
+                prev_input = match table.match_patterns(*e, *lhs, *rhs) {
+                    Ok(s) => {
+                        println!("{}", s);
+                        s
+                    },
+                    Err(msg) => {
+                        println!("{}", msg);
+                        "".to_string()
+                    }
+                }
             },
             Ok(e) => {
+                prev_input = table.expr_to_string(&e);
                 table.generate_truthtable(e);
                 table.print();
             },
