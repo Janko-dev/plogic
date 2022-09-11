@@ -48,43 +48,44 @@ pub fn parse(list: &mut Vec<Token>, interned: &mut Vec<String>) -> Result<Expr, 
 
 fn pattern_match(tokens: &mut Peekable<Iter<Token>>, interned: &mut Vec<String>) -> Result<Expr, String> {
     
-    let left = logic_twin_arrow(tokens, interned);
-    match tokens.peek() {
-        Some(Token::Rule) => {
+    let mut left = logic_twin_arrow(tokens, interned);
+    
+    if let Some(Token::Binding) = tokens.peek() {
+        
+        if let Ok(Expr::Primary(_)) = left {
             tokens.next();
             let eq_lhs = logic_twin_arrow(tokens, interned)?;
-            match tokens.peek() {
-                Some(Token::Equal) => {
-                    tokens.next();
-                    let eq_rhs = logic_twin_arrow(tokens, interned)?;
-                    return Ok(Expr::Pattern(Box::new(left?), Box::new(Rule::Equivalence(eq_lhs, eq_rhs))));
-                },
-                Some(other) => return Err(format!("Expected '=' in pattern expression or rule identifier, found {:?}", other)),
-                None => {
-                    if let Expr::Primary(n) = eq_lhs {
-                        return Ok(Expr::Pattern(Box::new(left?), Box::new(Rule::RuleId(n))));
-                    } else {
-                        return Err(format!("Expected rule identifier name, but got {:?}", eq_lhs));
-                    }
-                }
-            }
-        },
-        Some(Token::Binding) => {
-            if let Ok(Expr::Primary(_)) = left {
+            if let Some(Token::Equal) = tokens.peek() {
                 tokens.next();
-                let eq_lhs = logic_twin_arrow(tokens, interned)?;
-                if let Some(Token::Equal) = tokens.peek() {
-                    tokens.next();
-                    let eq_rhs = logic_twin_arrow(tokens, interned)?;
-                    return Ok(Expr::Binding(Box::new(left?), Box::new(Rule::Equivalence(eq_lhs, eq_rhs))));
-                } else {
-                    return Err("Expected '=' in pattern expression".to_string());
-                }
+                let eq_rhs = logic_twin_arrow(tokens, interned)?;
+                return Ok(Expr::Binding(Box::new(left?), Box::new(Rule::Equivalence(eq_lhs, eq_rhs))));
             } else {
-                return Err(format!("Can only bind rule to identifier, found {:?}", left));
+                return Err("Expected '=' in pattern expression".to_string());
             }
-        },
-        _ => {}
+        } else {
+            return Err(format!("Can only bind rule to identifier, found {:?}", left));
+        }
+    }
+    
+    while let Some(Token::Rule) = tokens.peek() {
+        tokens.next();
+        let eq_lhs = logic_twin_arrow(tokens, interned)?;
+        match tokens.peek() {
+            Some(Token::Equal) => {
+                tokens.next();
+                let eq_rhs = logic_twin_arrow(tokens, interned)?;
+                // (p & q => x & y = y & x)
+                left = Ok(Expr::Pattern(Box::new(left?), Box::new(Rule::Equivalence(eq_lhs, eq_rhs))));
+            },
+            Some(other) => return Err(format!("Expected '=' in pattern expression or rule identifier, found {:?}", other)),
+            None => {
+                if let Expr::Primary(n) = eq_lhs {
+                    return Ok(Expr::Pattern(Box::new(left?), Box::new(Rule::RuleId(n))));
+                } else {
+                    return Err(format!("Expected rule identifier name, but got {:?}", eq_lhs));
+                }
+            }
+        }
     }
     left
 }

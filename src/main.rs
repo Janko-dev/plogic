@@ -12,6 +12,7 @@ fn main() {
     let mut tokens: Vec<Token> = Vec::new();
     let mut prev_input: String = String::new();
     let mut rule_bindings: HashMap<String, Rule> = HashMap::new();
+    let mut is_num_symbol: bool = true;
 
     println!("Welcome to the REPL of Plogic.");
     utils::usage();
@@ -29,6 +30,16 @@ fn main() {
                 utils::usage();
                 continue;
             },
+            "toggle" => {
+                is_num_symbol = !is_num_symbol;
+                if is_num_symbol {
+                    println!("Changed truthtable symbols from 'T'/'F' to '1'/'0'");
+                    continue;
+                } else {
+                    println!("Changed truthtable symbols from '1'/'0' to 'T'/'F'");
+                    continue;
+                }
+            },
             "\n" | "" => continue,
             "quit" => break,
             _ => {},
@@ -41,7 +52,6 @@ fn main() {
 
         match expr {
             Ok(parser::Expr::Pattern(e, rule)) => {
-                // (t | f) & f => p & q = q & p
                 prev_input = match runtime::match_patterns(*e, *rule, &interned, &rule_bindings) {
                     Ok(s) => {
                         println!("{}", s);
@@ -61,7 +71,7 @@ fn main() {
                 }
             }
             Ok(e) => {
-                let mut table = runtime::Table::new(&interned);
+                let mut table = runtime::Table::new(&interned, &is_num_symbol);
                 prev_input = utils::expr_to_string(&e, &interned);
                 table.generate_truthtable(e);
                 table.print();

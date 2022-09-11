@@ -7,15 +7,17 @@ pub struct Table {
     atoms: Vec<Expr>,
     pub interned: Vec<String>,
     rows: usize,
+    is_num_symbols: bool,
 }
 
 impl Table {
-    pub fn new(interned: &Vec<String>) -> Self {
+    pub fn new(interned: &Vec<String>, is_num_symbols: &bool) -> Self {
         Self { 
             map: HashMap::new(),
             atoms: Vec::new(),
             interned: interned.clone(),
             rows: 0,
+            is_num_symbols: is_num_symbols.clone(),
         }
     }
 
@@ -154,13 +156,21 @@ impl Table {
         for i in 0..self.rows {
             for (j, head) in headers.iter().enumerate() {
                 let len = head.len();
+                let sym = if self.is_num_symbols {
+                    char::from_digit(list[j].1[i] as u32, 10) 
+                } else if list[j].1[i] == 1 {
+                    Some('T')
+                } else {
+                    Some('F')
+                };
+
                 if len % 2 == 0 {
                     print!("|{: <1$}", "", len/2-2);
-                    print!("{}", list[j].1[i]);
+                    print!("{}", sym.unwrap_or_default());
                     print!("{: <1$}| ", "", len/2-2);
                 } else {
                     print!("|{: <1$}", "", len/2-2);
-                    print!("{}", list[j].1[i]);
+                    print!("{}", sym.unwrap_or_default());
                     print!("{: <1$}| ", "", len/2-1);
                 }
             }

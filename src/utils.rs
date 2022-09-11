@@ -2,20 +2,24 @@ use crate::parser::{Expr, Rule};
 
 pub fn usage(){
     println!("Usage:");
-    println!("   -------------------");
-    println!("   | And     |  '&'  |");
-    println!("   | Or      |  '|'  |");
-    println!("   | Not     |  '~'  |");
-    println!("   | Cond    |  '->' |");
-    println!("   | Bi-Cond | '<->' |");
-    println!("   -------------------");
-    println!("   ----------------------");
-    println!("   | Rule       |  '=>' |");
-    println!("   | Derivation |       |");
-    println!("   ----------------------");
-    println!("   - help: usage info");
-    println!("   - ans:  previous answer");
-    println!("   - quit: exit repl");
+    println!("   ----------------------------------------");
+    println!("   | And oprator      |  '&'  | 'and'     |");
+    println!("   | Or oprator       |  '|'  | 'or'      |");
+    println!("   | Not oprator      |  '~'  | 'not'     |");
+    println!("   | Cond oprator     |  '->' | 'implies' |");
+    println!("   | Bi-Cond oprator  | '<->' | 'equiv'   |");
+    println!("   ----------------------------------------");
+    println!("   -----------------------------------------------------------------------");
+    println!("   | Rule       |  ':='  | identifier-name := lhs-pattern = rhs-pattern  |");
+    println!("   | binding    | 'rule' | example:   commutative := p & q = q & p       |");
+    println!("   -----------------------------------------------------------------------");
+    println!("   | Rule       |  '=>'  | inline pattern: A & B => p & q = q & p        |");
+    println!("   | Derivation |        | bound pattern : A & B => commutative          |");
+    println!("   -----------------------------------------------------------------------");
+    println!("   - help:   usage info");
+    println!("   - ans:    previous answer");
+    println!("   - toggle: toggle between (T/F) and (1/0) in truth tables");
+    println!("   - quit:   exit repl");
 }
 
 fn rule_to_string(rule: &Rule, interned: &Vec<String>) -> String {
