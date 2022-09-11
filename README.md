@@ -56,7 +56,7 @@ The following grammar describes the parsing strategy to build the abstract synta
 | `->` or `implies` | The conditional implication-operator only evaluates to false when the left-hand side is true and the right-hand side is false, otherwise the result is true. |
 | `<->` or `equiv` | The biconditional implication-operator only evaluates to true when both left and right hand sides are equal to eachother.|
 
-## Rule-based pattern matching
+### Rule-based pattern matching
 Furthermore, to pattern match expressions and transform them into other expressions, the `=>` or `rule` keyword is used after a valid propositional expression. Thereafter must follow a valid left hand-side expression, then a `=`, and then a valid right hand-side expression. Example:
 
 `A & (B | C) => p & (q | r) = (p & q) | (p & r)`
@@ -129,5 +129,22 @@ Atom             = ["a"-"z" | "A"-"Z"]* ;
 >
 ```
 ```
-
+> DeMorgan := ~(p & q) = ~p | ~q      
+> ~((a -> b) & ~(b -> c)) => DeMorgan
+~(a -> b) | ~~(b -> c)
+> toggle
+Changed truthtable symbols from '1'/'0' to 'T'/'F'
+> ans
+-------------------------------------------------------------------------------------------------------------
+[ c ] [ b ] [ a ] [ ~(b -> c) ] [ ~(a -> b) ] [ ~~(b -> c) ] [ b -> c ] [ a -> b ] [ ~(a -> b) | ~~(b -> c) ]
+|---| |---| |---| |-----------| |-----------| |------------| |--------| |--------| |------------------------|
+| F | | F | | F | |     F     | |     F     | |     T      | |   T    | |   T    | |           T            |
+| F | | F | | T | |     F     | |     T     | |     T      | |   T    | |   F    | |           T            |
+| F | | T | | F | |     T     | |     F     | |     F      | |   F    | |   T    | |           F            |
+| F | | T | | T | |     T     | |     F     | |     F      | |   F    | |   T    | |           F            |
+| T | | F | | F | |     F     | |     F     | |     T      | |   T    | |   T    | |           T            |
+| T | | F | | T | |     F     | |     T     | |     T      | |   T    | |   F    | |           T            |
+| T | | T | | F | |     F     | |     F     | |     T      | |   T    | |   T    | |           T            |
+| T | | T | | T | |     F     | |     F     | |     T      | |   T    | |   T    | |           T            |
+-------------------------------------------------------------------------------------------------------------
 ```
