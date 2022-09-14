@@ -283,7 +283,7 @@ fn subsitute_in(expr: &Expr, patterns: &mut HashMap<Expr, Expr>) -> Result<Expr,
             if let Some(v) = patterns.get(&expr) {
                 Ok(v.clone())
             } else {
-                Err("Pattern could not be found in expression or left hand side".to_string())
+                Err("Pattern could not be found in expression or rule".to_string())
             }
         },
         _ => Err("Unreachable".to_string())

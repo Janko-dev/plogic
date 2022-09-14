@@ -65,6 +65,14 @@ This expression describes the following. The expression `A & (B | C)` will be ma
 
 `(A & B) | (A & C)`
 
+In the case that the left hand-side did not match the expression, an attempt will be made to match the right hand side instead. The same procedure for pattern matching applies, only in reverse. Now, the right hand-side is matched, then substituted in the left hand-side of the given rule. An example will make this more clear. Consider the 'almost' same expression:
+
+`(A & B) | (A & C) => p & (q | r) = (p & q) | (p & r)`
+
+Notice that the left hand-side of the rule portion `p & (q | r)` does not match the sub-expression `(A & B) | (A & C)`. Therefore, the right hand-side will be attempted to match, which produces the result:
+
+`A & (B | C)`
+
 Aside from using inline rule patterns as demonstrated above, which can get convoluted to type if the given rule pattern is used multiple times, there is also the possibility to bind a rule to an identifier name. Consider the following:
 
 `distributive := p & (q | r) = (p & q) | (p & r)`
