@@ -74,7 +74,6 @@ fn pattern_match(tokens: &mut Peekable<Iter<Token>>, interned: &mut Vec<String>)
             Some(Token::Equal) => {
                 tokens.next();
                 let eq_rhs = logic_twin_arrow(tokens, interned)?;
-                // (p & q => x & y = y & x)
                 left = Ok(Expr::Pattern(Box::new(left?), Box::new(Rule::Equivalence(eq_lhs, eq_rhs))));
             },
             Some(other) => return Err(format!("Expected '=' in pattern expression or rule identifier, found {:?}", other)),

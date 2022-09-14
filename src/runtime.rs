@@ -180,18 +180,35 @@ impl Table {
     }
 }
 
-pub fn match_patterns(expr: Expr, rule: Rule, interned: &Vec<String>, rule_bindings: &HashMap<String, Rule>) -> Result<String, String> {
-    let mut patterns: HashMap<Expr, Expr> = HashMap::new();
+pub fn match_patterns(expr: &Expr, rule: Rule, interned: &Vec<String>, rule_bindings: &HashMap<String, Rule>) -> Result<String, String> {
     let result = match rule {
         Rule::Equivalence(lhs, rhs) => {
-            traverse_and_match(expr, lhs, &mut patterns);
-            subsitute_in(rhs, &mut patterns)
+            let mut patterns: HashMap<Expr, Expr> = HashMap::new();
+            match traverse_and_match(expr, &lhs, &mut patterns) {
+                Ok(()) => subsitute_in(&rhs, &mut patterns),
+                Err(_) => {
+                    let mut patterns: HashMap<Expr, Expr> = HashMap::new();
+                    match traverse_and_match(expr, &rhs, &mut patterns) {
+                        Ok(()) => subsitute_in(&lhs, &mut patterns),
+                        Err(s) => Err(s),
+                    } 
+                }
+            }
         },
         Rule::RuleId(n) => {
             let rule_maybe = rule_bindings.get(&interned[n]);
             if let Some(Rule::Equivalence(lhs, rhs)) = rule_maybe {
-                traverse_and_match(expr, lhs.clone(), &mut patterns);
-                subsitute_in(rhs.clone(), &mut patterns)
+                let mut patterns: HashMap<Expr, Expr> = HashMap::new();
+                match traverse_and_match(expr, &lhs, &mut patterns) {
+                    Ok(()) => subsitute_in(&rhs, &mut patterns),
+                    Err(_) => {
+                        let mut patterns: HashMap<Expr, Expr> = HashMap::new();
+                        match traverse_and_match(expr, &rhs, &mut patterns) {
+                            Ok(()) => subsitute_in(&lhs, &mut patterns),
+                            Err(s) => Err(s),
+                        } 
+                    }
+                }
             } else {
                 return Err("Undefined rule used".to_string());
             }
@@ -200,62 +217,66 @@ pub fn match_patterns(expr: Expr, rule: Rule, interned: &Vec<String>, rule_bindi
 
     match result {
         Ok(e) => Ok(utils::expr_to_string(&e, interned)),
-        Err(s) => Ok(s),
+        Err(s) => Err(s),
     }
 }
 
-fn traverse_and_match(expr: Expr, lhs: Expr, patterns: &mut HashMap<Expr, Expr>) {
+fn traverse_and_match(expr: &Expr, lhs: &Expr, patterns: &mut HashMap<Expr, Expr>) -> Result<(), String>{
     match lhs {
         Expr::Binary(pat_left, pat_op, pat_right) => {
             if let Expr::Binary(e_left, e_op, e_right) = expr {
                 if pat_op == e_op {
-                    traverse_and_match(*e_left, *pat_left, patterns);
-                    traverse_and_match(*e_right, *pat_right, patterns);
+                    if let Ok(()) = traverse_and_match(&*e_left, &*pat_left, patterns) {
+                        traverse_and_match(&*e_right, &*pat_right, patterns)
+                    } else {
+                        Err(format!("Expression does not match binary pattern"))
+                    }
                 } else {
-                    println!("Expression does not match pattern");
+                    Err("Expression does not match pattern".to_string())
                 }
             } else {
-                println!("Expression does not match pattern: {:?}", expr);
+                Err(format!("Expression does not match pattern: {:?}", expr))
             }
         },
         Expr::Not(pat_e) => {
             if let Expr::Not(e) = expr {
-                traverse_and_match(*e, *pat_e, patterns);
+                traverse_and_match(&*e, &*pat_e, patterns)
             } else {
-                println!("Expression does not match pattern: {:?}", expr);
+                Err(format!("Expression does not match pattern: {:?}", expr))
             }
         },
         Expr::Group(pat_e) => {
             if let Expr::Group(e) = expr {
-                traverse_and_match(*e, *pat_e, patterns);
+                traverse_and_match(&*e, &*pat_e, patterns)
             } else {
-                println!("Expression does not match pattern: {:?}", expr);
+                Err(format!("Expression does not match pattern: {:?}", expr))
             }
         },
         Expr::Primary(_) => {
-            if let None = patterns.get(&lhs) {
-                patterns.insert(lhs.clone(), expr);
+            if let None = patterns.get(lhs) {
+                patterns.insert(lhs.clone(), expr.clone());
             }
+            Ok(())
         },
         _ => {
-            println!("Unreachable");
+            Err(format!("Expression does not match pattern: {:?}", expr))
         }
     }
 }
 
-fn subsitute_in(expr: Expr, patterns: &mut HashMap<Expr, Expr>) -> Result<Expr, String> {
+fn subsitute_in(expr: &Expr, patterns: &mut HashMap<Expr, Expr>) -> Result<Expr, String> {
     match expr {
         Expr::Binary(l, op, r) => {
-            let left = subsitute_in(*l, patterns)?;
-            let right = subsitute_in(*r, patterns)?;
-            Ok(Expr::Binary(Box::new(left), op, Box::new(right)))
+            let left = subsitute_in(&*l, patterns)?;
+            let right = subsitute_in(&*r, patterns)?;
+            Ok(Expr::Binary(Box::new(left), *op, Box::new(right)))
         },
         Expr::Not(e) => {
-            let res = subsitute_in(*e, patterns)?;
+            let res = subsitute_in(&*e, patterns)?;
             Ok(Expr::Not(Box::new(res)))
         },
         Expr::Group(e) => {
-            let res = subsitute_in(*e, patterns)?;
+            let res = subsitute_in(&*e, patterns)?;
             Ok(Expr::Group(Box::new(res)))
         },
         Expr::Primary(_) => {

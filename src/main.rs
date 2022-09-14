@@ -52,7 +52,7 @@ fn main() {
 
         match expr {
             Ok(parser::Expr::Pattern(e, rule)) => {
-                prev_input = match runtime::match_patterns(*e, *rule, &interned, &rule_bindings) {
+                prev_input = match runtime::match_patterns(&*e, *rule, &interned, &rule_bindings) {
                     Ok(s) => {
                         println!("{}", s);
                         s

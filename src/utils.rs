@@ -22,7 +22,7 @@ pub fn usage(){
     println!("   - quit:   exit repl");
 }
 
-fn rule_to_string(rule: &Rule, interned: &Vec<String>) -> String {
+pub fn rule_to_string(rule: &Rule, interned: &Vec<String>) -> String {
     match rule {
         Rule::Equivalence(lhs, rhs) => format!("{} = {}", expr_to_string(lhs, interned), expr_to_string(rhs, interned)),
         Rule::RuleId(n) => format!("{}", interned[*n])
